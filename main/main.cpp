@@ -26,6 +26,7 @@
 extern "C" {
 #include "llama.h"
 #include "llm.h"
+#include "wifi_manager.h"  // Add this
 }
 
 static const char *TAG = "MAIN";
@@ -51,8 +52,8 @@ static const char *TAG = "MAIN";
 #define BUTTON_PIN GPIO_NUM_21
 
 // WiFi and API
-#define WIFI_SSID "Mostansir"
-#define WIFI_PASSWORD "kawserjahan"
+// #define WIFI_SSID "Mostansir"
+// #define WIFI_PASSWORD "kawserjahan"
 #define ASSEMBLYAI_API_KEY "ed32d36e5a714ebdb15cb1bef9270807"
 
 // Output buffer
@@ -421,40 +422,40 @@ void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id
     }
 }
 
-void wifi_init() {
-    ESP_LOGI(TAG, "Initializing WiFi...");
+// void wifi_init() {
+//     ESP_LOGI(TAG, "Initializing WiFi...");
     
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        nvs_flash_erase();
-        ret = nvs_flash_init();
-    }
+//     esp_err_t ret = nvs_flash_init();
+//     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+//         nvs_flash_erase();
+//         ret = nvs_flash_init();
+//     }
     
-    esp_netif_init();
-    esp_event_loop_create_default();
-    esp_netif_create_default_wifi_sta();
+//     esp_netif_init();
+//     esp_event_loop_create_default();
+//     esp_netif_create_default_wifi_sta();
     
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
+//     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+//     esp_wifi_init(&cfg);
     
-    esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL);
-    esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL);
+//     esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL);
+//     esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL);
     
-    wifi_config_t wifi_config = {};
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-    wifi_config.sta.pmf_cfg.capable = true;
-    wifi_config.sta.pmf_cfg.required = false;
+//     wifi_config_t wifi_config = {};
+//     wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+//     wifi_config.sta.pmf_cfg.capable = true;
+//     wifi_config.sta.pmf_cfg.required = false;
     
-    memcpy(wifi_config.sta.ssid, WIFI_SSID, strlen(WIFI_SSID));
-    memcpy(wifi_config.sta.password, WIFI_PASSWORD, strlen(WIFI_PASSWORD));
+//     memcpy(wifi_config.sta.ssid, WIFI_SSID, strlen(WIFI_SSID));
+//     memcpy(wifi_config.sta.password, WIFI_PASSWORD, strlen(WIFI_PASSWORD));
     
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
-    esp_wifi_start();
+//     esp_wifi_set_mode(WIFI_MODE_STA);
+//     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+//     esp_wifi_start();
     
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    ESP_LOGI(TAG, "WiFi initialized");
-}
+//     vTaskDelay(pdMS_TO_TICKS(5000));
+//     ESP_LOGI(TAG, "WiFi initialized");
+// }
 
 // === ASSEMBLYAI FUNCTIONS ===
 
@@ -941,7 +942,30 @@ void voice_task(void* params) {
     VoiceTaskParams* data = (VoiceTaskParams*)params;
     
     oled_show_animation("WIFI INIT");
-    wifi_init();
+    
+
+        // WiFi Manager - handles everything automatically
+    esp_err_t wifi_status = wifi_manager_init();
+    
+    if (wifi_status == ESP_OK) {
+        ESP_LOGI(TAG, "Connected to WiFi, continuing with main app");
+    } else {
+        ESP_LOGI(TAG, "WiFi setup mode active - waiting for configuration");
+        oled_clear();
+        vTaskDelay(pdMS_TO_TICKS(20));
+        oled_draw_string(0, 2, "WIFI SETUP MODE");
+        oled_draw_string(0, 4, "Connect to:");
+        oled_draw_string(0, 5, "ESP32-Setup");
+        
+        // Wait indefinitely for WiFi configuration
+        while (!wifi_manager_is_connected()) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+        ESP_LOGI(TAG, "WiFi configured! Restarting...");
+        esp_restart();
+    }
+
+
     
     oled_show_animation("I2S INIT");
     init_i2s_microphone();

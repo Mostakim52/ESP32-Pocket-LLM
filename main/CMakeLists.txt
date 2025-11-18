@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.cpp" "llm.c"
+idf_component_register(SRCS "main.cpp" "llm.c" "wifi_manager.c"
                     INCLUDE_DIRS ""
                     LDFRAGMENTS "../linker.lf")
 
